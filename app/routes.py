@@ -44,8 +44,8 @@ def upload_video():
 
     try:
         # Upload cover and video to MinIO
-        store_file(dto.cover, video_metadata.cover_filename, 2 * 1024 * 1024)
-        store_file(dto.video, video_metadata.video_filename)
+        store_file(dto.cover, video_metadata.cover_filename)
+        store_file(dto.video, video_metadata.video_filename, 10)
 
         # Store metadata in db
         store_metadata(video_metadata)
@@ -107,7 +107,14 @@ def get_video_metadata(dto: UploadVideoDTO) -> VideoMetadata:
     )
 
 
-def store_file(file: FileStorage, filename: str, file_size=10 * 1024 * 1024):
+def store_file(file: FileStorage, filename: str, file_size=5):
+    """
+    Store the passed file in MinIO.
+    @param file: The file to store.
+    @param filename: The name of the file.
+    @param file_size: The max. filesize in MB. MinIO expects minimum 5MB.
+    """
+
     # Parse the file stream to a binary stream
     binary_data: BinaryIO = io.BytesIO(file.stream.read())
 
@@ -117,7 +124,7 @@ def store_file(file: FileStorage, filename: str, file_size=10 * 1024 * 1024):
         filename,
         binary_data,
         length=-1,  # Length of the stream (unknown)
-        part_size=file_size,
+        part_size=file_size * 1024 * 1024,
         content_type=file.content_type
     )
 

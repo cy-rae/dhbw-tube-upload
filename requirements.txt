@@ -2,5 +2,5 @@ Flask~=3.0.3
 minio~=7.2.7
 Flask-SQLAlchemy
 psycopg2-binary
-
 Werkzeug~=3.0.3
+flask-cors
