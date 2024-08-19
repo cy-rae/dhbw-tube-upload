@@ -1,9 +1,15 @@
 """Endpoint for uploading videos to MinIO and saving metadata to PostgreSQL"""
+import io
+import logging
+from typing import Optional, BinaryIO
 
 from flask import Blueprint, request, jsonify
 from minio import Minio
 from minio.error import S3Error
-from .models import db, Video
+from werkzeug.datastructures.file_storage import FileStorage
+
+from app.models.uploiad_video_dto import UploadVideoDTO
+from app.models.video_metadata import db, VideoMetadata
 import os
 import uuid
 
@@ -26,48 +32,99 @@ if not minio_client.bucket_exists(bucket_name):
 
 @api.route(rule='/upload', methods=['POST'])
 def upload_video():
-    title = request.form.get('title')
-    creator = request.form.get('creator')
-    description = request.form.get('description')
+    """
+    Validate the passed payload, upload the video and cover to MinIO and store the metadata to db.
+    """
+    (dto, err) = __validate_payload()
+    if err is not None:
+        logging.error(f"Invalid payload: {err}")
+        return jsonify({"error": err}), 400
 
-    if not title or not creator:
-        return jsonify({"error": "Title and creator are required"}), 400
-
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
-
-    file = request.files['file']
-
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-
-    file_id = str(uuid.uuid4())
-    file_extension = file.filename.rsplit(sep='.', maxsplit=1)[1].lower()
-    file_name = f"{file_id}.{file_extension}"
+    video_metadata = get_video_metadata(dto)
 
     try:
-        # Upload file to MinIO
-        minio_client.put_object(
-            bucket_name,
-            file_name,
-            file.stream,
-            length=-1,  # Length of the stream (unknown)
-            part_size=10 * 1024 * 1024,  # 10 MB part size
-            content_type=file.content_type
-        )
+        # Upload cover and video to MinIO
+        store_file(dto.cover, video_metadata.cover_filename, 2 * 1024 * 1024)
+        store_file(dto.video, video_metadata.video_filename)
 
-        # Save metadata to the PostgreSQL database
-        video = Video(
-            id=file_id,
-            title=title,
-            creator=creator,
-            description=description,
-            filename=file_name
-        )
-        db.session.add(video)
-        db.session.commit()
-
+        # Store metadata in db
+        store_metadata(video_metadata)
     except S3Error as err:
+        logging.error(f"S3Error error: {err}")
         return jsonify({"error": str(err)}), 500
 
-    return jsonify({"message": "File uploaded successfully", "file_id": file_id}), 200
+    return jsonify({"message": "File uploaded successfully", "file_id": video_metadata.id}), 201
+
+
+def __validate_payload() -> tuple[Optional[UploadVideoDTO], Optional[str]]:
+    """
+    Validate the request payload for the upload endpoint.
+    returns: Returns None if the payload is valid, otherwise an error message.
+    """
+    # Check if metadata is valid
+    title: Optional[str] = request.form.get('title')
+    creator: Optional[str] = request.form.get('creator')
+    if not title or not creator:
+        return None, "Title and creator are required"
+
+    # Check if cover is valid
+    if 'cover' not in request.files:
+        return None, "No cover part in the request"
+    cover: Optional[FileStorage] = request.files['cover']
+    if cover.filename == '':
+        return None, "No cover selected"
+
+    # Check if file is valid
+    if 'video' not in request.files:
+        return None, "No video part in the request"
+    video: Optional[FileStorage] = request.files['video']
+    if video.filename == '':
+        return None, "No video selected"
+
+    description: Optional[str] = request.form.get('description')
+    return UploadVideoDTO(title, creator, description, cover, video), None
+
+
+def get_video_metadata(dto: UploadVideoDTO) -> VideoMetadata:
+    """
+    Create an identifiable VideoMetadata object from the passed payload.
+    """
+    video_id = str(uuid.uuid4())
+
+    cover_extension: str = dto.cover.filename.rsplit(sep='.', maxsplit=1)[1].lower()
+    cover_filename = f"{video_id}.{cover_extension}"
+
+    video_extension: str = dto.video.filename.rsplit(sep='.', maxsplit=1)[1].lower()
+    video_filename = f"{video_id}.{video_extension}"
+
+    return VideoMetadata(
+        id=video_id,
+        title=dto.title,
+        creator=dto.creator,
+        description=dto.description,
+        cover_filename=cover_filename,
+        video_filename=video_filename
+    )
+
+
+def store_file(file: FileStorage, filename: str, file_size=10 * 1024 * 1024):
+    # Parse the file stream to a binary stream
+    binary_data: BinaryIO = io.BytesIO(file.stream.read())
+
+    # Upload the file to MinIO
+    minio_client.put_object(
+        bucket_name,
+        filename,
+        binary_data,
+        length=-1,  # Length of the stream (unknown)
+        part_size=file_size,
+        content_type=file.content_type
+    )
+
+    logging.info(f"Stored file with name '{filename}' into the MinIO database.")
+
+
+def store_metadata(video_metadata: VideoMetadata):
+    db.session.add(video_metadata)
+    db.session.commit()
+    logging.info(f"Stored metadata for video with ID '{video_metadata.id}' in the database.")

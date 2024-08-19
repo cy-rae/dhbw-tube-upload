@@ -2,7 +2,7 @@
 
 from flask import Flask
 from .routes import api
-from .models import db
+from .models.video_metadata import db
 
 
 def create_app():
