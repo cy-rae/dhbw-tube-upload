@@ -23,11 +23,13 @@ minio_client = Minio(
     secure=False
 )
 
-bucket_name = "video-files"
+video_bucket_name = "video-files"
+cover_bucket_name = "video-covers"
 
-# Ensure the bucket exists
-if not minio_client.bucket_exists(bucket_name):
-    minio_client.make_bucket(bucket_name)
+# Ensure the buckets exists
+for bucket in [video_bucket_name, cover_bucket_name]:
+    if not minio_client.bucket_exists(bucket):
+        minio_client.make_bucket(bucket)
 
 
 @api.route(rule='/upload', methods=['POST'])
@@ -43,11 +45,11 @@ def upload_video():
     video_metadata = get_video_metadata(dto)
 
     try:
-        # Upload cover and video to MinIO
-        store_file(dto.cover, video_metadata.cover_filename)
-        store_file(dto.video, video_metadata.video_filename, 10)
+        # Store cover and video in MinIO
+        store_file(file=dto.cover, filename=video_metadata.cover_filename, bucket_name=cover_bucket_name, file_size=5)
+        store_file(file=dto.video, filename=video_metadata.video_filename, bucket_name=video_bucket_name, file_size=10)
 
-        # Store metadata in db
+        # Store metadata in Postgres
         store_metadata(video_metadata)
     except S3Error as err:
         logging.error(f"S3Error error: {err}")
@@ -107,11 +109,12 @@ def get_video_metadata(dto: UploadVideoDTO) -> VideoMetadata:
     )
 
 
-def store_file(file: FileStorage, filename: str, file_size=5):
+def store_file(file: FileStorage, filename: str, bucket_name: str, file_size=5):
     """
     Store the passed file in MinIO.
     @param file: The file to store.
     @param filename: The name of the file.
+    @param bucket_name: The name of the bucket to store the file in.
     @param file_size: The max. filesize in MB. MinIO expects minimum 5MB.
     """
 
