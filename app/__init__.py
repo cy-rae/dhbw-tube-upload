@@ -2,8 +2,8 @@
 from flask import Flask
 from flask_cors import CORS
 
-from .routes import api
-from .models.video_metadata import db
+from app.models.video_metadata import db
+from app.routes import api
 
 
 def create_app():

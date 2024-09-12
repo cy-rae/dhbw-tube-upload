@@ -1,6 +1,8 @@
 """Endpoint for uploading videos to MinIO and saving metadata to PostgreSQL"""
 import io
 import logging
+import os
+import uuid
 from typing import Optional, BinaryIO
 
 from flask import Blueprint, request, jsonify
@@ -10,8 +12,6 @@ from werkzeug.datastructures.file_storage import FileStorage
 
 from app.models.uploiad_video_dto import UploadVideoDTO
 from app.models.video_metadata import db, VideoMetadata
-import os
-import uuid
 
 api = Blueprint(name='api', import_name=__name__)
 
@@ -95,9 +95,11 @@ def get_video_metadata(dto: UploadVideoDTO) -> VideoMetadata:
 
     cover_extension: str = dto.cover.filename.rsplit(sep='.', maxsplit=1)[1].lower()
     cover_filename = f"{video_id}.{cover_extension}"
+    cover_mime_type = dto.cover.mimetype
 
     video_extension: str = dto.video.filename.rsplit(sep='.', maxsplit=1)[1].lower()
     video_filename = f"{video_id}.{video_extension}"
+    video_mime_type = dto.video.mimetype
 
     return VideoMetadata(
         id=video_id,
@@ -105,7 +107,9 @@ def get_video_metadata(dto: UploadVideoDTO) -> VideoMetadata:
         creator=dto.creator,
         description=dto.description,
         cover_filename=cover_filename,
-        video_filename=video_filename
+        cover_mime_type=cover_mime_type,
+        video_filename=video_filename,
+        video_mime_type=video_mime_type
     )
 
 
