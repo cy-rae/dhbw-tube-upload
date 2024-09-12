@@ -3,7 +3,8 @@ from flask import Flask
 from flask_cors import CORS
 
 from app.models.video_metadata import db
-from app.routes import api
+from app.routes.health_check_routes import health_check_api
+from app.routes.upload_routes import upload_api
 
 
 def create_app():
@@ -17,7 +18,8 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     db.init_app(app)
-    app.register_blueprint(api)
+    app.register_blueprint(upload_api)
+    app.register_blueprint(health_check_api)
 
     with app.app_context():
         # Create the tables if they don't exist

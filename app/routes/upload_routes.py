@@ -13,7 +13,7 @@ from werkzeug.datastructures.file_storage import FileStorage
 from app.models.uploiad_video_dto import UploadVideoDTO
 from app.models.video_metadata import db, VideoMetadata
 
-api = Blueprint(name='api', import_name=__name__)
+upload_api = Blueprint(name='api', import_name=__name__)
 
 # MinIO Client Setup
 minio_client = Minio(
@@ -32,7 +32,7 @@ for bucket in [video_bucket_name, cover_bucket_name]:
         minio_client.make_bucket(bucket)
 
 
-@api.route(rule='/upload', methods=['POST'])
+@upload_api.route(rule='/upload', methods=['POST'])
 def upload_video():
     """
     Validate the passed payload, upload the video and cover to MinIO and store the metadata to db.
