@@ -1,27 +1,18 @@
 """Endpoint for uploading videos to MinIO and saving metadata to PostgreSQL"""
 import io
 import logging
-import os
 import uuid
 from typing import Optional, BinaryIO
 
 from flask import Blueprint, request, jsonify
-from minio import Minio
 from minio.error import S3Error
 from werkzeug.datastructures.file_storage import FileStorage
 
+from app.models.minio_client import minio_client
 from app.models.uploiad_video_dto import UploadVideoDTO
 from app.models.video_metadata import db, VideoMetadata
 
 upload_api = Blueprint(name='api', import_name=__name__)
-
-# MinIO Client Setup
-minio_client = Minio(
-    os.getenv('MINIO_ENDPOINT', 'minio:9000'),
-    access_key=os.getenv('MINIO_ACCESS_KEY', 'minioadmin'),
-    secret_key=os.getenv('MINIO_SECRET_KEY', 'minioadmin'),
-    secure=False
-)
 
 video_bucket_name = "video-files"
 cover_bucket_name = "video-covers"
