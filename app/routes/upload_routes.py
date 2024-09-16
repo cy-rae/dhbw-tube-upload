@@ -104,25 +104,38 @@ def get_video_metadata(dto: UploadVideoDTO) -> VideoMetadata:
     )
 
 
-def store_file(file: FileStorage, filename: str, bucket_name: str, file_size=5):
+def store_file(file: FileStorage, filename: str, bucket_name: str):
     """
     Store the passed file in MinIO.
     @param file: The file to store.
     @param filename: The name of the file.
     @param bucket_name: The name of the bucket to store the file in.
-    @param file_size: The max. filesize in MB. MinIO expects minimum 5MB.
     """
 
     # Parse the file stream to a binary stream
     binary_data: BinaryIO = io.BytesIO(file.stream.read())
+
+    # Get the length of the binary data
+    binary_data.seek(0, io.SEEK_END)
+    length = binary_data.tell()
+    binary_data.seek(0)  # Reset the stream position to the beginning
+
+    # Determine part size based on the length of the binary data. The part size determines the size of the parts the
+    # file is split into when uploading to MinIO.
+    if length < 100 * 1024 * 1024:  # Less than 100 MB
+        part_size = 5 * 1024 * 1024  # 5 MB
+    elif length < 1 * 1024 * 1024 * 1024:  # Less than 1 GB
+        part_size = 10 * 1024 * 1024  # 10 MB
+    else:  # 1 GB or more
+        part_size = 25 * 1024 * 1024  # 25 MB
 
     # Upload the file to MinIO
     minio_client.put_object(
         bucket_name,
         filename,
         binary_data,
-        length=-1,  # Length of the stream (unknown)
-        part_size=file_size * 1024 * 1024,
+        length=length,
+        part_size=part_size,
         content_type=file.content_type
     )
 
