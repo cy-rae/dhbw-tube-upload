@@ -37,8 +37,8 @@ def upload_video():
 
     try:
         # Store cover and video in MinIO
-        store_file(file=dto.cover, filename=video_metadata.cover_filename, bucket_name=cover_bucket_name, file_size=5)
-        store_file(file=dto.video, filename=video_metadata.video_filename, bucket_name=video_bucket_name, file_size=10)
+        store_file(file=dto.cover, filename=video_metadata.cover_filename, bucket_name=cover_bucket_name)
+        store_file(file=dto.video, filename=video_metadata.video_filename, bucket_name=video_bucket_name)
 
         # Store metadata in Postgres
         store_metadata(video_metadata)
@@ -122,12 +122,12 @@ def store_file(file: FileStorage, filename: str, bucket_name: str):
 
     # Determine part size based on the length of the binary data. The part size determines the size of the parts the
     # file is split into when uploading to MinIO.
-    if length < 100 * 1024 * 1024:  # Less than 100 MB
-        part_size = 5 * 1024 * 1024  # 5 MB
-    elif length < 1 * 1024 * 1024 * 1024:  # Less than 1 GB
-        part_size = 10 * 1024 * 1024  # 10 MB
-    else:  # 1 GB or more
+    if length >= 1 * 1024 * 1024 * 1024:  # 1 GB or more
         part_size = 25 * 1024 * 1024  # 25 MB
+    elif length >= 100 * 1024 * 1024:  # Less than 1 GB
+        part_size = 10 * 1024 * 1024  # 10 MB
+    else:  # Less than 100 MB
+        part_size = 5 * 1024 * 1024  # 5 MB
 
     # Upload the file to MinIO
     minio_client.put_object(
