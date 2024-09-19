@@ -13,7 +13,7 @@ from app.models.uploiad_video_dto import UploadVideoDTO
 from app.models.video_metadata import db, VideoMetadata
 
 upload_api = Blueprint(name='api', import_name=__name__)
-
+logging.basicConfig(level=logging.INFO)
 video_bucket_name = "video-files"
 cover_bucket_name = "video-covers"
 
