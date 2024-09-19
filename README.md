@@ -1,4 +1,4 @@
-# dhbw-tube-upload Microservice
+# DHBW-Tube: Upload Microservice
 
 ## Overview
 The **DHBW Upload Microservice** is a Flask-based application designed to handle video uploads. It provides an endpoint for uploading videos to a MinIO object storage and saving the associated metadata to a PostgreSQL database. This microservice ensures that video files and their corresponding thumbnails are securely stored and that all relevant metadata is properly recorded for future retrieval and management.
